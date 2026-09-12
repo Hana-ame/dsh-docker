@@ -1,0 +1,7 @@
+.git
+.gitignore
+.env
+*.log
+docker-compose*.override.yml
+setup-security.sh
+README.md

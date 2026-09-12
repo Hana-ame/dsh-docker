@@ -1,0 +1,51 @@
+services:
+  dsh:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dsh-sandbox
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-3080}:3080"
+    environment:
+      - NODE_ENV=production
+      - DSH_HOME=/home/dshuser/.dsh
+      - PORT=3080
+      # Provide API key if needed
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+    volumes:
+      - dsh_data:/home/dshuser/.dsh
+      - dsh_workspace:/workspace
+    # Host isolation & security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    extra_hosts:
+      - "host.docker.internal:127.0.0.1"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    # Prevent host resource starvation
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+          pids: 256
+    networks:
+      dsh-network:
+        ipv4_address: 172.28.0.10
+
+networks:
+  dsh-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1
+
+volumes:
+  dsh_data:
+  dsh_workspace:
