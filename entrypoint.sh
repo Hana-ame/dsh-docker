@@ -30,7 +30,11 @@ if [ "$1" = "web" ]; then
         done
     fi
 
+    PORT_NUM="${HOST_PORT:-3080}"
+
     exec dsh web --no-open --port 3081 \
+        --trusted-host "localhost:${PORT_NUM}" \
+        --trusted-host "127.0.0.1:${PORT_NUM}" \
         --trusted-host "localhost:3080" \
         --trusted-host "127.0.0.1:3080" \
         "${EXTRA_TRUST_ARGS[@]}" \

@@ -1,83 +1,151 @@
 # Hardened DeepSeek Harness (`dsh`) in Docker
 
-Production-ready Docker environment for running **DeepSeek Harness (`dsh`)** Web UI with strict host isolation, minimal container image layers, and preconfigured security policies.
+生产就绪、高安全性且极致精简层级的 **DeepSeek Harness (`dsh`)** Web UI 容器化部署方案。已配置严苛的**宿主机隔离防护**与**网络白名单机制**。
 
 ---
 
-## Architecture & Security Highlights
-
-### 1. Complete Host Isolation ("Cannot Access the Host")
-- **Host System Block**: `setup-security.sh` injects `INPUT` chain `iptables` rules that drop all incoming traffic from the container subnet (`172.28.0.0/16`) to the host. Any attempt from inside the container to connect to host ports (e.g. SSH on port 22, host databases, or daemon services) will immediately time out.
-- **Internal Subnet & Cloud Metadata Shield**: Rules in `DOCKER-USER` block access to cloud metadata (`169.254.169.254`) and private RFC1918 subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`).
-- **No Host Sockets or Sensitive Directories**: No `/var/run/docker.sock` and no host filesystem directories are mounted. Only isolated Docker volumes are used (`dsh_data` and `dsh_workspace`).
-- **Unprivileged Non-Root Execution**: Runs as dedicated user `dshuser` (UID:GID `10001:10001`).
-- **Linux Capability Stripping**: All kernel capabilities are dropped (`cap_drop: [ALL]`).
-- **No Privilege Escalation**: `security_opt: [no-new-privileges:true]`.
-- **Resource Constraints**: PID limit (`pids: 256`), memory (`4G`), and CPU limits (`2.0`) prevent host resource starvation or fork-bombs.
-
-### 2. Layer & Build Optimization
-- Built on `node:22-bookworm-slim`.
-- Utilizes a single consolidated `RUN` layer to bundle system tools, `@deepseek-ai/dsh`, package cache cleanups, and user setup.
-- Minimizes image size (~180MB) and ensures fast layer caching.
-
-### 3. Loopback Bridge Architecture
-Because `dsh web` enforces loopback binding (`127.0.0.1`) for browser security, an internal lightweight Layer-4 TCP bridge forwards external traffic from `0.0.0.0:3080` to internal `127.0.0.1:3081`, maintaining full WebSocket, SSE, and HTTP streaming support while satisfying the security constraints.
+## 目录
+1. [安全与宿主机隔离设计](#安全与宿主机隔离设计)
+2. [快速启动与访问](#快速启动与访问)
+3. [如何修改访问 IP 与端口（必读）](#如何修改访问-ip-与端口必读)
+4. [常用运维管理命令](#常用运维管理命令)
+5. [镜像精简与层级优化说明](#镜像精简与层级优化说明)
 
 ---
 
-## Quick Start
+## 安全与宿主机隔离设计
 
-### 1. (Optional) Configuration
-```bash
-cp .env.example .env
-```
+本部署方案从底层杜绝了容器内程序访问宿主机的可能：
 
-### 2. Apply Security Rules
+1. **宿主机完全阻断（防火墙 INPUT 链拦截）**：
+   - 执行 `./setup-security.sh` 会在 Linux 内核 `INPUT` 链中注入规则，**直接 DROP 容器子网（`172.28.0.0/16`）发送给宿主机的全部数据包**。
+   - 容器内任何探测宿主机端口（如宿主机 SSH 22 端口、本地数据库等）的行为均会立即超时并丢弃。
+2. **内网与云元数据阻断（DOCKER-USER 链拦截）**：
+   - 阻断容器对私有子网（`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`）及云元数据地址（`169.254.169.254`）的路由访问。
+3. **无敏感挂载与特权剥夺**：
+   - **绝不挂载** Docker Socket（`/var/run/docker.sock`）或宿主机根目录。数据存储使用独立的 Docker 卷（`dsh_data`, `dsh_workspace`）。
+   - 剥离所有 Linux 内核特权（`cap_drop: [ALL]`）。
+   - 阻止特权提权（`security_opt: [no-new-privileges:true]`）。
+   - 强制使用低权限普通用户 `dshuser`（UID:GID `10001:10001`）运行。
+4. **资源限制防打崩宿主机**：
+   - 限制进程数（`pids: 256`）防止 Fork 炸弹，限制 CPU 与内存（`cpus: 2.0`, `memory: 4G`）避免宿主机资源耗尽。
+
+---
+
+## 快速启动与访问
+
+### 第一步：加载安全防护规则
 ```bash
 ./setup-security.sh
 ```
 
-### 3. Build and Start Container
+### 第二步：启动容器
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-### 4. Retrieve Access Token & Open Browser
-View container logs to get the session access URL with authentication token:
+### 第三步：获取登录链接（含 Token）
+查看容器输出的带 Token 访问链接：
 ```bash
-docker compose logs
+docker compose logs --tail 10
 ```
-Look for:
-```
+你会看到如下日志输出：
+```text
 dsh web: http://127.0.0.1:3081/?token=<TOKEN>
 ```
-Access in your browser using port `3080`:
-```
-http://localhost:3080/?token=<TOKEN>
-```
+
+### 第四步：在浏览器中打开
+
+* **方式 A：通过 Cloud Shell 网页预览（如果在 Google Cloud Shell 中使用）**
+  1. 点击 Cloud Shell 右上角 **「Web 预览」**（网页/电脑图标）。
+  2. 点击 **「更改端口」** -> 输入 **`3080`** 并点击 **「更改并预览」**。
+  3. 在新打开的网页地址栏末尾拼接上刚才获取的 `?token=<TOKEN>` 即可登入。
+
+* **方式 B：本地电脑 SSH 端口转发**
+  本地电脑终端运行：
+  ```bash
+  gcloud cloud-shell ssh --ssh-flag="-L 3080:localhost:3080"
+  # 或者原生 SSH:
+  # ssh -L 3080:localhost:3080 user@your-server-ip
+  ```
+  在本地电脑浏览器访问：`http://localhost:3080/?token=<TOKEN>`
 
 ---
 
-## Verification & Security Testing
+## 如何修改访问 IP 与端口（必读）
 
-- **Verify non-root user**:
+如果你需要将默认的 `0.0.0.0:3080` 改为其他端口（如 `8080`）、绑定特定 IP（如仅限 `127.0.0.1`），或通过自定义域名/局域网 IP 访问，请按下述两步进行修改：
+
+### 1. 修改配置文件 `.env`
+
+项目通过根目录下的 `.env` 文件（若不存在可复制自 `.env.example`）集中管理变量：
+
+```bash
+# ==============================================================================
+# 1. 改变绑定的宿主机 IP (HOST_BIND)
+# ==============================================================================
+# 默认为 0.0.0.0（允许公网/局域网访问）。
+# 如果希望仅宿主机本机可用（配合 SSH 隧道，最安全），设为：
+HOST_BIND=127.0.0.1
+
+# ==============================================================================
+# 2. 改变对外暴露的端口 (HOST_PORT)
+# ==============================================================================
+# 默认为 3080。若需要改为 8080、9090 等，直接修改：
+HOST_PORT=8080
+
+# ==============================================================================
+# 3. 改变安全信任域名/IP 白名单 (EXTRA_TRUSTED_HOSTS)  ★ 关键步骤
+# ==============================================================================
+# dsh 内置了严格的 Browser-Trust Fence 安全机制。
+# 如果浏览器访问的 Host 不是默认的 localhost 或 127.0.0.1，
+# 必须在此处显式加入该“域名”或“IP:端口”，否则调用 /api 时会返回 403 Forbidden！
+# 
+# 示例 1: 改成了 8080 端口并通过局域网 IP 访问：
+EXTRA_TRUSTED_HOSTS="192.168.1.100:8080 localhost:8080"
+#
+# 示例 2: 使用了公网域名：
+# EXTRA_TRUSTED_HOSTS="my-agent.example.com"
+```
+
+### 2. 重启容器使配置生效
+
+修改 `.env` 后，在项目目录下执行：
+```bash
+docker compose up -d
+```
+Docker Compose 会自动检测到配置变更并重新加载容器。
+
+---
+
+## 常用运维管理命令
+
+* **启动服务**：
   ```bash
-  docker compose exec dsh id
-  # Expected: uid=10001(dshuser) gid=10001(dshuser)
+  docker compose up -d
   ```
-
-- **Verify container cannot reach the host**:
-  ```bash
-  # Attempt to connect to host SSH (port 22) - will time out:
-  docker compose exec dsh curl -m 2 http://172.28.0.1:22
-  ```
-
-- **Verify outbound internet works for DeepSeek API**:
-  ```bash
-  docker compose exec dsh curl -m 3 -Is https://api.deepseek.com
-  ```
-
-- **Stop container**:
+* **停止服务**：
   ```bash
   docker compose down
   ```
+* **重启服务**：
+  ```bash
+  docker compose restart
+  ```
+* **查看容器实时日志与登录 Token**：
+  ```bash
+  docker compose logs -f
+  ```
+* **重新构建镜像（在修改 Dockerfile 或 entrypoint.sh 之后）**：
+  ```bash
+  docker compose build --no-cache
+  docker compose up -d
+  ```
+
+---
+
+## 镜像精简与层级优化说明
+
+- 基础镜像采用官方最小化的 `node:22-bookworm-slim`。
+- 构建逻辑将所有的依赖安装（`bash`、`curl`、`git`、`procps`、`python3`）、全局包安装（`@deepseek-ai/dsh`）、包缓存清除（`npm cache clean`、`apt-get purge`、`rm -rf /var/lib/apt/lists/*`）以及非特权用户创建收敛合并为**单一 RUN 指令层**。
+- 最终镜像体积压缩至 ~180MB，层数精简到极致，确保高速拉取与启动。
