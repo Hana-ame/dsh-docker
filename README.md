@@ -1,70 +1,64 @@
-# dsh in Docker (Hardened & Isolated)
+# Hardened DeepSeek Harness (`dsh`) in Docker
 
-Production-ready Docker environment for running **DeepSeek Harness (`dsh`)** web interface with strict host isolation and minimal image layers.
+Production-ready Docker environment for running **DeepSeek Harness (`dsh`)** Web UI with strict host isolation, minimal container image layers, and preconfigured security policies.
 
-## Security & Host Isolation Guarantees
+---
 
-This deployment is specifically designed so that **`dsh` inside the container cannot access the host**:
+## Architecture & Security Highlights
 
-1. **Strict Network Isolation**:
-   - Containers run in an isolated custom bridge network (`172.28.0.0/16`).
-   - `setup-security.sh` configures `iptables` in the `DOCKER-USER` chain to explicitly **DROP** all traffic from the container to the host gateway (`172.28.0.1`), host private subnets (RFC1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), and cloud metadata (`169.254.169.254`).
-   - `host.docker.internal` is mapped to `127.0.0.1` to neutralize internal host resolution.
-   - Public DNS (`8.8.8.8`, `1.1.1.1`) is configured to avoid leaking host resolver requests.
-2. **No Host Sockets or Sensitive Mounts**:
-   - No Docker daemon socket (`/var/run/docker.sock`) is mounted.
-   - No host root or user filesystems are mounted; only isolated Docker named volumes (`dsh_data`, `dsh_workspace`) are used.
-3. **Unprivileged Non-Root Execution**:
-   - The container runs as unprivileged user `dshuser` (UID:GID `10001:10001`).
-4. **Dropped Linux Capabilities & Privileges**:
-   - `cap_drop: [ALL]` drops all Linux capabilities.
-   - `security_opt: [no-new-privileges:true]` prevents privilege escalation through setuid/setgid binaries.
-5. **Host Resource Protection**:
-   - PIDs are constrained (`pids: 256`) to prevent fork bombs.
-   - CPU and memory limits (`cpus: 2.0`, `memory: 4G`) prevent resource starvation of the host.
+### 1. Complete Host Isolation ("Cannot Access the Host")
+- **Host System Block**: `setup-security.sh` injects `INPUT` chain `iptables` rules that drop all incoming traffic from the container subnet (`172.28.0.0/16`) to the host. Any attempt from inside the container to connect to host ports (e.g. SSH on port 22, host databases, or daemon services) will immediately time out.
+- **Internal Subnet & Cloud Metadata Shield**: Rules in `DOCKER-USER` block access to cloud metadata (`169.254.169.254`) and private RFC1918 subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`).
+- **No Host Sockets or Sensitive Directories**: No `/var/run/docker.sock` and no host filesystem directories are mounted. Only isolated Docker volumes are used (`dsh_data` and `dsh_workspace`).
+- **Unprivileged Non-Root Execution**: Runs as dedicated user `dshuser` (UID:GID `10001:10001`).
+- **Linux Capability Stripping**: All kernel capabilities are dropped (`cap_drop: [ALL]`).
+- **No Privilege Escalation**: `security_opt: [no-new-privileges:true]`.
+- **Resource Constraints**: PID limit (`pids: 256`), memory (`4G`), and CPU limits (`2.0`) prevent host resource starvation or fork-bombs.
 
-## Layer Optimization
+### 2. Layer & Build Optimization
+- Built on `node:22-bookworm-slim`.
+- Utilizes a single consolidated `RUN` layer to bundle system tools, `@deepseek-ai/dsh`, package cache cleanups, and user setup.
+- Minimizes image size (~180MB) and ensures fast layer caching.
 
-The `Dockerfile` is optimized to use the **least possible layers**:
-- Base layer: `node:22-bookworm-slim`
-- **A single consolidated `RUN` layer** that combines package installation, `@deepseek-ai/dsh` global installation, apt/npm cache purging, user creation, and workspace preparation.
-- Results in a minimal footprint and fast pull/build execution.
+### 3. Loopback Bridge Architecture
+Because `dsh web` enforces loopback binding (`127.0.0.1`) for browser security, an internal lightweight Layer-4 TCP bridge forwards external traffic from `0.0.0.0:3080` to internal `127.0.0.1:3081`, maintaining full WebSocket, SSE, and HTTP streaming support while satisfying the security constraints.
 
 ---
 
 ## Quick Start
 
-### 1. Configure Environment (Optional)
+### 1. (Optional) Configuration
 ```bash
 cp .env.example .env
-# Edit .env to set custom HOST_PORT or DEEPSEEK_API_KEY if desired
 ```
 
-### 2. Apply Security Firewall Rules
+### 2. Apply Security Rules
 ```bash
 ./setup-security.sh
 ```
 
-### 3. Build & Run
+### 3. Build and Start Container
 ```bash
 docker compose up -d --build
 ```
 
-### 4. Access Web Interface
-Open your browser at:
+### 4. Retrieve Access Token & Open Browser
+View container logs to get the session access URL with authentication token:
+```bash
+docker compose logs
 ```
-http://localhost:3080
+Look for:
 ```
-(or the port configured via `HOST_PORT`).
+dsh web: http://127.0.0.1:3081/?token=<TOKEN>
+```
+Access in your browser using port `3080`:
+```
+http://localhost:3080/?token=<TOKEN>
+```
 
 ---
 
-## Verification
-
-- **Check container status**:
-  ```bash
-  docker compose ps
-  ```
+## Verification & Security Testing
 
 - **Verify non-root user**:
   ```bash
@@ -72,10 +66,15 @@ http://localhost:3080
   # Expected: uid=10001(dshuser) gid=10001(dshuser)
   ```
 
-- **Verify host access is blocked from container**:
+- **Verify container cannot reach the host**:
   ```bash
-  # Attempting to reach host gateway will timeout/fail:
-  docker compose exec dsh curl -m 3 http://172.28.0.1
+  # Attempt to connect to host SSH (port 22) - will time out:
+  docker compose exec dsh curl -m 2 http://172.28.0.1:22
+  ```
+
+- **Verify outbound internet works for DeepSeek API**:
+  ```bash
+  docker compose exec dsh curl -m 3 -Is https://api.deepseek.com
   ```
 
 - **Stop container**:

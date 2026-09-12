@@ -1,6 +1,6 @@
 FROM node:22-bookworm-slim
 
-# Single combined RUN layer to minimize image layers and keep image size minimal
+# Single consolidated RUN layer to minimize Docker image layers and optimize image size
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         bash \
@@ -17,6 +17,8 @@ RUN apt-get update && \
     mkdir -p /home/dshuser/.dsh /workspace && \
     chown -R dshuser:dshuser /home/dshuser /workspace
 
+COPY --chmod=755 entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
 USER 10001:10001
 WORKDIR /workspace
 
@@ -26,5 +28,5 @@ ENV HOME=/home/dshuser \
 
 EXPOSE 3080
 
-ENTRYPOINT ["dsh"]
-CMD ["web", "--host", "0.0.0.0", "--port", "3080"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["web"]

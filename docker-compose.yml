@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: dsh:latest
     container_name: dsh-sandbox
     restart: unless-stopped
     ports:
@@ -10,9 +11,8 @@ services:
     environment:
       - NODE_ENV=production
       - DSH_HOME=/home/dshuser/.dsh
-      - PORT=3080
-      # Provide API key if needed
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - EXTRA_TRUSTED_HOSTS=${EXTRA_TRUSTED_HOSTS:-}
     volumes:
       - dsh_data:/home/dshuser/.dsh
       - dsh_workspace:/workspace
@@ -26,7 +26,6 @@ services:
     dns:
       - 8.8.8.8
       - 1.1.1.1
-    # Prevent host resource starvation
     deploy:
       resources:
         limits:
