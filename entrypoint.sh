@@ -32,7 +32,7 @@ if [ "$1" = "web" ]; then
 
     PORT_NUM="${HOST_PORT:-3080}"
 
-    exec dsh web --no-open --port 3081 \
+    exec /usr/local/bin/dsh web --no-open --port 3081 \
         --trusted-host "localhost:${PORT_NUM}" \
         --trusted-host "127.0.0.1:${PORT_NUM}" \
         --trusted-host "localhost:3080" \
@@ -41,4 +41,4 @@ if [ "$1" = "web" ]; then
         "$@"
 fi
 
-exec dsh "$@"
+exec /usr/local/bin/dsh "$@"

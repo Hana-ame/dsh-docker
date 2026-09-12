@@ -7,19 +7,22 @@ services:
     container_name: dsh-sandbox
     restart: unless-stopped
     ports:
-      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT:-3080}:3080"
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT:-8080}:3080"
     environment:
       - NODE_ENV=production
       - DSH_HOME=/home/dshuser/.dsh
-      - HOST_PORT=${HOST_PORT:-3080}
+      - HOST_PORT=${HOST_PORT:-8080}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - EXTRA_TRUSTED_HOSTS=${EXTRA_TRUSTED_HOSTS:-}
     volumes:
       - dsh_data:/home/dshuser/.dsh
       - dsh_workspace:/workspace
+    # In-memory tmpfs for /tmp: fast I/O and auto-cleaned on restart
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=1g
     # Host isolation & security hardening
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     cap_drop:
       - ALL
     extra_hosts:

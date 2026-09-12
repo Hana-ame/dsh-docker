@@ -13,6 +13,9 @@ RUN apt-get update && \
         python3-venv \
         python-is-python3 && \
     npm install -g --omit=dev @deepseek-ai/dsh && \
+    rm -f /usr/local/bin/dsh && \
+    printf '#!/usr/bin/env bash\nexec node --expose-internals /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js "$@"\n' > /usr/local/bin/dsh && \
+    chmod 755 /usr/local/bin/dsh && \
     npm cache clean --force && \
     apt-get purge -y --auto-remove && \
     rm -rf /var/lib/apt/lists/* /tmp/* /root/.npm && \

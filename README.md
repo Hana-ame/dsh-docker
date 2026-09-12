@@ -22,12 +22,15 @@
    - 容器内任何探测宿主机端口（如宿主机 SSH 22 端口、本地数据库等）的行为均会立即超时并丢弃。
 2. **内网与云元数据阻断（DOCKER-USER 链拦截）**：
    - 阻断容器对私有子网（`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`）及云元数据地址（`169.254.169.254`）的路由访问。
-3. **无敏感挂载与特权剥夺**：
+3. **工作区隔离与持久化设计**：
+   - **`/workspace`（持久化工作区）**：容器默认工作目录（`WORKDIR /workspace`），挂载独立 Docker 卷 `dsh_workspace`，归属于非特权用户 `dshuser:dshuser`。所有项目代码与生成物在容器重启或销毁后依然持久保存。
+   - **`/tmp`（高速独立内存盘 tmpfs）**：挂载 1GB 内存 `tmpfs`（`rw,nosuid,nodev,size=1g`），具备标准 Linux `drwxrwxrwt` 权限。临时文件高速读写且容器重启自动彻底销毁，杜绝硬盘磨损与缓存泄露。
+4. **无敏感挂载与特权剥夺**：
    - **绝不挂载** Docker Socket（`/var/run/docker.sock`）或宿主机根目录。数据存储使用独立的 Docker 卷（`dsh_data`, `dsh_workspace`）。
    - 剥离所有 Linux 内核特权（`cap_drop: [ALL]`）。
-   - 阻止特权提权（`security_opt: [no-new-privileges:true]`）。
+   - 阻止特权提权（`security_opt: [no-new-privileges=true]`）。
    - 强制使用低权限普通用户 `dshuser`（UID:GID `10001:10001`）运行。
-4. **资源限制防打崩宿主机**：
+5. **资源限制防打崩宿主机**：
    - 限制进程数（`pids: 256`）防止 Fork 炸弹，限制 CPU 与内存（`cpus: 2.0`, `memory: 4G`）避免宿主机资源耗尽。
 
 ---
@@ -58,17 +61,17 @@ dsh web: http://127.0.0.1:3081/?token=<TOKEN>
 
 * **方式 A：通过 Cloud Shell 网页预览（如果在 Google Cloud Shell 中使用）**
   1. 点击 Cloud Shell 右上角 **「Web 预览」**（网页/电脑图标）。
-  2. 点击 **「更改端口」** -> 输入 **`3080`** 并点击 **「更改并预览」**。
+  2. 点击 **「在端口 8080 上预览」**（默认端口即为 8080）。
   3. 在新打开的网页地址栏末尾拼接上刚才获取的 `?token=<TOKEN>` 即可登入。
 
 * **方式 B：本地电脑 SSH 端口转发**
   本地电脑终端运行：
   ```bash
-  gcloud cloud-shell ssh --ssh-flag="-L 3080:localhost:3080"
+  gcloud cloud-shell ssh --ssh-flag="-L 8080:localhost:8080"
   # 或者原生 SSH:
-  # ssh -L 3080:localhost:3080 user@your-server-ip
+  # ssh -L 8080:localhost:8080 user@your-server-ip
   ```
-  在本地电脑浏览器访问：`http://localhost:3080/?token=<TOKEN>`
+  在本地电脑浏览器访问：`http://localhost:8080/?token=<TOKEN>`
 
 ---
 
