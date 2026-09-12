@@ -8,7 +8,10 @@ RUN apt-get update && \
         git \
         ca-certificates \
         procps \
-        python3 && \
+        python3 \
+        python3-pip \
+        python3-venv \
+        python-is-python3 && \
     npm install -g --omit=dev @deepseek-ai/dsh && \
     npm cache clean --force && \
     apt-get purge -y --auto-remove && \
@@ -24,7 +27,8 @@ WORKDIR /workspace
 
 ENV HOME=/home/dshuser \
     DSH_HOME=/home/dshuser/.dsh \
-    NODE_ENV=production
+    NODE_ENV=production \
+    PIP_BREAK_SYSTEM_PACKAGES=1
 
 EXPOSE 3080
 
