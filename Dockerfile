@@ -1,7 +1,14 @@
 FROM node:22-bookworm-slim
 
-# Single consolidated RUN layer to minimize Docker image layers and optimize image size
-RUN apt-get update && \
+# 国内镜像源加速：apt 使用 USTC（实测 ~665KB/s，优于 aliyun 的 31KB/s），npm 使用 npmmirror
+RUN set -eux; \
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i 's|deb.debian.org|mirrors.ustc.edu.cn|g; s|security.debian.org|mirrors.ustc.edu.cn|g' /etc/apt/sources.list.d/debian.sources; \
+    fi; \
+    if [ -f /etc/apt/sources.list ]; then \
+        sed -i 's|deb.debian.org|mirrors.ustc.edu.cn|g; s|security.debian.org|mirrors.ustc.edu.cn|g' /etc/apt/sources.list; \
+    fi; \
+    apt-get -o Acquire::Retries=5 update && \
     apt-get install -y --no-install-recommends \
         bash \
         curl \
@@ -12,6 +19,9 @@ RUN apt-get update && \
         python3-pip \
         python3-venv \
         python-is-python3 && \
+    npm config set registry https://registry.npmmirror.com && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-timeout 120000 && \
     npm install -g --omit=dev @deepseek-ai/dsh && \
     rm -f /usr/local/bin/dsh && \
     printf '#!/usr/bin/env bash\nexec node --expose-internals /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js "$@"\n' > /usr/local/bin/dsh && \
