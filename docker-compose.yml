@@ -51,4 +51,6 @@ networks:
 
 volumes:
   dsh_data:
+    name: dsh_data
   dsh_workspace:
+    name: dsh_workspace
