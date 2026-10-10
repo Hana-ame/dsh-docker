@@ -332,13 +332,13 @@ test('interval above maximum returns error', async () => {
   assert.ok(r.error.includes('invalid interval'))
 })
 
-test('empty interval uses default 120s', async () => {
+test('empty interval uses default 1200s', async () => {
   const { ctx, handled } = createMockCtx()
   hostPlugin.apply(ctx)
 
   const r = await handled['patrol-start']({ sessionId: 'test-001', interval: '', preset: 'standard-patrol' })
   assert.equal(r.ok, true)
-  assert.equal(r.intervalMs, 120000)
+  assert.equal(r.intervalMs, 1200000)
 })
 
 // ── Multiple sessions isolation ──────────────────────────────────────────

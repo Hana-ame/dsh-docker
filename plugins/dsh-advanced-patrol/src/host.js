@@ -8,7 +8,7 @@
  * @module src/host.js
  */
 
-const DEFAULT_INTERVAL_MS = 120 * 1000
+const DEFAULT_INTERVAL_MS = 1200 * 1000
 const MIN_INTERVAL_MS = 30 * 1000
 const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000
 

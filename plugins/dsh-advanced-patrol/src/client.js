@@ -11,7 +11,7 @@
 const h = React.createElement
 
 const PANEL_ID = 'advanced-patrol'
-const DEFAULT_INTERVAL = '120'
+const DEFAULT_INTERVAL = '1200'
 const INTERVAL_MIN = 30
 const INTERVAL_MAX = 86400
 
