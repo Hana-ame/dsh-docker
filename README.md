@@ -1,15 +1,65 @@
-# Hardened DeepSeek Harness (`dsh`) in Docker
+# Hardened DeepSeek Harness (`dsh`) in Docker — 插件集合仓库
 
-生产就绪、高安全性且极致精简层级的 **DeepSeek Harness (`dsh`)** Web UI 容器化部署方案。已配置严苛的**宿主机隔离防护**与**网络白名单机制**。
+生产就绪、高安全性且极致精简层级的 **DeepSeek Harness (`dsh`)** Web UI 容器化部署方案。已配置严苛的**宿主机隔离防护**与**网络白名单机制**，并预装三枚常用 Cordis 插件。
 
 ---
 
 ## 目录
-1. [安全与宿主机隔离设计](#安全与宿主机隔离设计)
-2. [快速启动与访问](#快速启动与访问)
-3. [如何修改访问 IP 与端口（必读）](#如何修改访问-ip-与端口必读)
-4. [常用运维管理命令](#常用运维管理命令)
-5. [镜像精简与层级优化说明](#镜像精简与层级优化说明)
+1. [预装插件](#预装插件)
+2. [安全与宿主机隔离设计](#安全与宿主机隔离设计)
+3. [快速启动与访问](#快速启动与访问)
+4. [如何修改访问 IP 与端口（必读）](#如何修改访问-ip-与端口必读)
+5. [常用运维管理命令](#常用运维管理命令)
+6. [镜像精简与层级优化说明](#镜像精简与层级优化说明)
+
+---
+
+## 预装插件
+
+本仓库聚合了三个自用的 DSH Cordis 插件，在 Docker 镜像构建时一并 COPY 到 `/home/dshuser/.dsh/plugins/`，容器启动即生效，无需额外安装。
+
+| 插件 | 目录 | 用途 | 挂载方式 |
+|------|------|------|----------|
+| **Agent Canvas** | `plugins/dsh-agent-canvas/` | Web GUI 侧边栏画布图：以文件为节点、Agent 为根的可视化工作区 | Cordis 动态插件（host + client 双半） |
+| **Advanced Patrol** | `plugins/dsh-advanced-patrol/` | 会话级定时巡检：多预设（标准巡检/上下文审查/知识录入/卡住脱困），LLM 多轮工具操作 | Cordis 动态插件（host + client 双半） |
+| **Our Free Model (OFM)** | `plugins/dsh-our-free-model/` | 免费额度自动切换：多模型自动 fallback、用量探测、feed 推送 | Cordis 动态插件（host + client 双半） |
+
+三个插件**互不干扰**，各自独立挂载，任一插件缺失不影响其余插件工作。
+
+### 插件目录结构
+
+```
+plugins/
+├── dsh-agent-canvas/        # Agent Canvas 画布插件
+│   ├── src/
+│   │   ├── client.js        # 浏览器半（React UI）
+│   │   └── host.js          # 服务器半（RPC handlers）
+│   ├── package.json
+│   └── README.md
+├── dsh-advanced-patrol/     # 高级巡检插件
+│   ├── src/
+│   │   ├── client.js        # 浏览器半（侧边栏图标 + 控制面板）
+│   │   ├── host.js          # 服务器半（定时器 + LLM 巡检）
+│   │   └── presets.js       # 预设定义
+│   ├── presets/             # 预设模板 Markdown
+│   ├── cordis.patch.yml     # Cordis 组合声明
+│   ├── index.js
+│   └── package.json
+└── dsh-our-free-model/      # OFM 免费模型插件
+    ├── src/                 # 核心模块（adapter/catalog/forward/probe 等）
+    ├── vendor/              # 运行时依赖（jet-hub wasm）
+    ├── adapter/  catalog/  feed/  worker/
+    ├── index.js             # 插件入口
+    ├── client.js            # 浏览器半
+    ├── cordis.patch.yml
+    └── package.json
+```
+
+### 如何添加/移除插件
+
+- **添加**：将新插件目录放入 `plugins/`，确保有 `package.json` + `cordis.patch.yml`，重新 `docker compose build --no-cache`。
+- **移除**：从 `plugins/` 删除目录，重新 build。
+- **自定义**：修改插件源码后重新 build，或挂载自定义插件目录到容器内 `/home/dshuser/.dsh/plugins/`。
 
 ---
 
@@ -151,4 +201,4 @@ Docker Compose 会自动检测到配置变更并重新加载容器。
 
 - 基础镜像采用官方最小化的 `node:22-bookworm-slim`。
 - 构建逻辑将所有的依赖安装（`bash`、`curl`、`git`、`procps`、`python3`）、全局包安装（`@deepseek-ai/dsh`）、包缓存清除（`npm cache clean`、`apt-get purge`、`rm -rf /var/lib/apt/lists/*`）以及非特权用户创建收敛合并为**单一 RUN 指令层**。
-- 最终镜像体积压缩至 ~180MB，层数精简到极致，确保高速拉取与启动。
+- 最终镜像体积约 ~200MB（含三枚预装插件 ~8.5MB），层数精简，确保高速拉取与启动。

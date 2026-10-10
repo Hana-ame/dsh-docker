@@ -33,6 +33,10 @@ RUN set -eux; \
     mkdir -p /home/dshuser/.dsh /workspace && \
     chown -R dshuser:dshuser /home/dshuser /workspace
 
+# Bundle plugins into the image (Agent Canvas + Advanced Patrol + Our Free Model)
+COPY plugins/ /home/dshuser/.dsh/plugins/
+RUN chown -R dshuser:dshuser /home/dshuser/.dsh/plugins
+
 COPY --chmod=755 entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 USER 10001:10001

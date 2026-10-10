@@ -1,0 +1,39 @@
+{
+  "name": "dsh-advanced-patrol",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Advanced patrol plugin for DSH: session-level timer-driven LLM patrol with switchable presets (standard/context-review/knowledge-entry/stuck-rescue). Each session picks a preset and interval; the LLM performs multi-turn tool operations on each tick.",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./src/presets": "./src/presets.js",
+    "./src/patrol-state": "./src/patrol-state.js",
+    "./src/patrol-engine": "./src/patrol-engine.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "patrol",
+    "session",
+    "timer",
+    "preset",
+    "llm"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2"
+  }
+}

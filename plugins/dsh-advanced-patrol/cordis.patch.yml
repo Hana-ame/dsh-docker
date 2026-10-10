@@ -1,0 +1,10 @@
+# dsh-advanced-patrol bundle patch.
+#
+# One insert line mounts the Host half. No inject dependencies — everything
+# is reached through ctx.get() so a headless composition degrades a feature
+# rather than failing the plugin.
+- insert:
+    - id: advanced-patrol
+      name: 'dsh-advanced-patrol'
+      inject: []
+      config: {}

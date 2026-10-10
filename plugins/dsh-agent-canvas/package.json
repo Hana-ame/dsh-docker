@@ -1,0 +1,40 @@
+{
+  "name": "dsh-agent-canvas",
+  "version": "1.0.0",
+  "description": "An Agent Canvas screen for the DeepSeek Harness Web GUI, shipped as a dynamic Cordis plugin.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hana-ame/dsh-agent-canvas.git"
+  },
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "check:json": "node scripts/check.mjs --json",
+    "selftest": "node scripts/selftest.mjs",
+    "selftest:json": "node scripts/selftest.mjs --json",
+    "install": "node scripts/install.mjs",
+    "install:json": "node scripts/install.mjs --json",
+    "install:prompt": "node scripts/install.mjs --prompt",
+    "test": "npm run check && npm run selftest"
+  },
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "cordis",
+    "plugin",
+    "canvas",
+    "agents"
+  ],
+  "files": [
+    "src",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ]
+}
