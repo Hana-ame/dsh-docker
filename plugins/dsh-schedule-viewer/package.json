@@ -1,0 +1,38 @@
+{
+  "name": "dsh-schedule-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Schedule viewer plugin for DSH: GUI sidebar button that displays all current scheduled tasks (schedules) with title, id, frequency, next trigger, status, and prompt content. Optional delegation ledger section shows recent session delegations.",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./src/host": "./src/host.js",
+    "./src/client": "./src/client.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "schedule",
+    "viewer",
+    "timer",
+    "delegation"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2"
+  }
+}

@@ -22,9 +22,10 @@
 |------|------|------|----------|
 | **Agent Canvas** | `plugins/dsh-agent-canvas/` | Web GUI 侧边栏画布图：以文件为节点、Agent 为根的可视化工作区 | Cordis 动态插件（host + client 双半） |
 | **Advanced Patrol** | `plugins/dsh-advanced-patrol/` | 会话级定时巡检：多预设（标准巡检/上下文审查/知识录入/卡住脱困），LLM 多轮工具操作 | Cordis 动态插件（host + client 双半） |
+| **Schedule Viewer** | `plugins/dsh-schedule-viewer/` | 定时任务查看器：GUI 侧边栏按钮，查看所有 schedule 任务 + 委派记录 | Cordis 动态插件（host + client 双半） |
 | **Our Free Model (OFM)** | `plugins/dsh-our-free-model/` | 免费额度自动切换：多模型自动 fallback、用量探测、feed 推送 | Cordis 动态插件（host + client 双半） |
 
-三个插件**互不干扰**，各自独立挂载，任一插件缺失不影响其余插件工作。
+四个插件**互不干扰**，各自独立挂载，任一插件缺失不影响其余插件工作。
 
 ### 插件目录结构
 
@@ -42,6 +43,13 @@ plugins/
 │   │   ├── host.js          # 服务器半（定时器 + LLM 巡检）
 │   │   └── presets.js       # 预设定义
 │   ├── presets/             # 预设模板 Markdown
+│   ├── cordis.patch.yml     # Cordis 组合声明
+│   ├── index.js
+│   └── package.json
+├── dsh-schedule-viewer/     # 定时任务查看器插件
+│   ├── src/
+│   │   ├── client.js        # 浏览器半（侧边栏图标 + 任务面板）
+│   │   └── host.js          # 服务器半（读取 schedule.json + state.json）
 │   ├── cordis.patch.yml     # Cordis 组合声明
 │   ├── index.js
 │   └── package.json
