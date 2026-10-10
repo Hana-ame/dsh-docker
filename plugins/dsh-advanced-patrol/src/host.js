@@ -235,8 +235,8 @@ function start(sessionId, intervalMs, presetName, deps) {
   state.startedAt = Date.now()
 
   const timer = deps.timer
-  state.timer = ctx.effect
-    ? ctx.effect(() => timer.interval(() => {
+  state.timer = deps.effect
+    ? deps.effect(() => timer.interval(() => {
         void runTick(sessionId, deps)
       }, intervalMs), PATROL_LABEL)
     : () => {}
@@ -268,7 +268,7 @@ async function runTick(sessionId, deps) {
   }
 
   // Check if the session's agent is still alive.
-  const agentsValue = deps.agents
+  const agentsValue = deps.agents()
   if (agentsValue === null || agentsValue === undefined || typeof agentsValue.get !== 'function' || agentsValue.get(sessionId) === undefined) {
     stop(sessionId)
     return { prompted: false, reason: 'session-closed' }
@@ -283,7 +283,7 @@ async function runTick(sessionId, deps) {
     return { prompted: false, reason: 'preset-render-failed' }
   }
 
-  const ctrl = deps.controller
+  const ctrl = deps.controller()
   if (ctrl === null || ctrl === undefined || typeof ctrl.prompt !== 'function') {
     return { prompted: false, reason: 'sessionController unavailable' }
   }
@@ -343,7 +343,13 @@ export default {
       return
     }
 
-    const deps = { controller, agents, timer, logger }
+    const deps = {
+      controller,
+      agents,
+      timer,
+      logger,
+      effect: typeof ctx.effect === 'function' ? ctx.effect : null,
+    }
 
     // ── RPC handlers ──────────────────────────────────────────────────────
 
@@ -490,4 +496,15 @@ export default {
 
     console.log('[advanced-patrol] host applied; RPC handlers registered')
   },
+}
+
+// ── Test-only reset ───────────────────────────────────────────────────────
+
+export function __reset() {
+  for (const state of sessions.values()) {
+    if (state.timer) {
+      try { state.timer() } catch { /* ignore */ }
+    }
+  }
+  sessions.clear()
 }
