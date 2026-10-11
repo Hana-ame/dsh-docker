@@ -56,6 +56,7 @@ const CSS = [
   '.sv-loading{text-align:center;padding:20px;color:var(--dsw-alias-label-secondary,inherit);font-size:12px}',
   '.sv-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center}',
   '.sv-time{font-size:11px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary,inherit))}',
+  '[aria-label="自动化任务"]{display:none!important}',
 ].join('\n')
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────
