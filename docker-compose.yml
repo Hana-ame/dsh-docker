@@ -3,6 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # 构建期从 GitHub 拉插件；在 .env 里设置 HTTP(S)_PROXY 即自动传入 build-arg
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
     image: dsh:latest
     container_name: dsh-sandbox
     restart: unless-stopped

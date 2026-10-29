@@ -22,6 +22,7 @@ RUN set -eux; \
     npm config set registry https://registry.npmmirror.com && \
     npm config set fetch-retries 5 && \
     npm config set fetch-timeout 120000 && \
+    npm install -g pnpm && \
     npm install -g --omit=dev @deepseek-ai/dsh && \
     rm -f /usr/local/bin/dsh && \
     printf '#!/usr/bin/env bash\nexec node --expose-internals /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js "$@"\n' > /usr/local/bin/dsh && \
@@ -31,11 +32,12 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/* /tmp/* /root/.npm && \
     useradd -m -u 10001 -s /bin/bash dshuser && \
     mkdir -p /home/dshuser/.dsh /workspace && \
+    printf 'registry=https://registry.npmmirror.com\nauto-install-peers=false\n' > /home/dshuser/.npmrc && \
     chown -R dshuser:dshuser /home/dshuser /workspace
 
-# Bundle plugins into the image (Agent Canvas + Advanced Patrol + Our Free Model)
-COPY plugins/ /home/dshuser/.dsh/plugins/
-RUN chown -R dshuser:dshuser /home/dshuser/.dsh/plugins
+# 插件清单 + 登记脚本：插件源码不进镜像，构建时由 dsh 自己按清单安装
+COPY plugins.list /tmp/dsh-plugins/plugins.list
+COPY scripts/enable-bundles.mjs /tmp/dsh-plugins/enable-bundles.mjs
 
 COPY --chmod=755 entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
@@ -46,6 +48,23 @@ ENV HOME=/home/dshuser \
     DSH_HOME=/home/dshuser/.dsh \
     NODE_ENV=production \
     PIP_BREAK_SYSTEM_PACKAGES=1
+
+# 构建期安装插件：逐行读 plugins.list，`dsh plugin --profile web add <spec>`，
+# 再把装好的组合包登记进 web profile 的 dsh.profile.bundles。
+# 插件从 GitHub 拉取；构建机需要代理时通过 --build-arg 传入（见 README）。
+ARG HTTP_PROXY=""
+ARG HTTPS_PROXY=""
+ARG NO_PROXY=""
+RUN set -eux; \
+    grep -vE '^[[:space:]]*(#|$)' /tmp/dsh-plugins/plugins.list > /tmp/dsh-plugins/resolved.list; \
+    while IFS= read -r spec; do \
+        echo "[plugins] dsh plugin --profile web add $spec"; \
+        dsh plugin --profile web add "$spec"; \
+    done < /tmp/dsh-plugins/resolved.list; \
+    node /tmp/dsh-plugins/enable-bundles.mjs; \
+    dsh --profile web --dump-config > /dev/null; \
+    pnpm store prune || true; \
+    rm -rf /tmp/dsh-plugins /home/dshuser/.npm
 
 EXPOSE 3080
 

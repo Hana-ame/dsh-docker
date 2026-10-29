@@ -1,0 +1,21 @@
+# dsh-docker 预装插件清单
+#
+# 每行一个 pnpm 安装 spec（git+https / github:user/repo / npm 包名均可），
+# 空行与 # 开头的行会被忽略。镜像构建时 Dockerfile 逐行执行：
+#     dsh plugin --profile web add <spec>
+# 装完后 scripts/enable-bundles.mjs 会把声明了 dsh.bundle / dsh.client 的包
+# 登记到 web profile 的 dsh.profile.bundles，容器启动即加载。
+#
+# 改完本文件请重新构建镜像：docker compose build
+
+# ── 自研插件（Hana-ame）──────────────────────────────────────────────────
+git+https://github.com/Hana-ame/dsh-advanced-patrol.git
+git+https://github.com/Hana-ame/dsh-schedule-viewer.git
+
+# ── Our Free Model（Hana-ame fork，含 CodeArts 线路恢复）────────────────
+git+https://github.com/Hana-ame/dsh-our-free-model.git
+
+# ── 说明 ────────────────────────────────────────────────────────────────
+# Agent Canvas 是动态 Cordis 插件，必须在运行中的 DSH 里由 agent 用
+# cordis_define / cordis_run 加载，无法通过本清单预装；
+# 源码见 https://github.com/Hana-ame/dsh-canvases

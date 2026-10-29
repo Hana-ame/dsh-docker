@@ -1,6 +1,6 @@
 # Hardened DeepSeek Harness (`dsh`) in Docker — 插件集合仓库
 
-生产就绪、高安全性且极致精简层级的 **DeepSeek Harness (`dsh`)** Web UI 容器化部署方案。已配置严苛的**宿主机隔离防护**与**网络白名单机制**，并预装三枚常用 Cordis 插件。
+生产就绪、高安全性且极致精简层级的 **DeepSeek Harness (`dsh`)** Web UI 容器化部署方案。已配置严苛的**宿主机隔离防护**与**网络白名单机制**，插件清单放在 `plugins.list`，镜像构建时由 dsh 自己安装。
 
 ---
 
@@ -14,60 +14,50 @@
 
 ---
 
-## 预装插件
+## 预装插件（构建时自动安装）
 
-本仓库聚合了三个自用的 DSH Cordis 插件，在 Docker 镜像构建时一并 COPY 到 `/home/dshuser/.dsh/plugins/`，容器启动即生效，无需额外安装。
+镜像**不打包插件源码**。仓库根目录的 `plugins.list` 是安装清单：每行一个 pnpm 安装 spec。构建镜像时 Dockerfile 逐行执行
 
-| 插件 | 目录 | 用途 | 挂载方式 |
-|------|------|------|----------|
-| **Agent Canvas** | `plugins/dsh-agent-canvas/` | Web GUI 侧边栏画布图：以文件为节点、Agent 为根的可视化工作区 | Cordis 动态插件（host + client 双半） |
-| **Advanced Patrol** | `plugins/dsh-advanced-patrol/` | 会话级定时巡检：多预设（标准巡检/上下文审查/知识录入/卡住脱困），LLM 多轮工具操作 | Cordis 动态插件（host + client 双半） |
-| **Schedule Viewer** | `plugins/dsh-schedule-viewer/` | 定时任务查看器：GUI 侧边栏按钮，查看所有 schedule 任务 + 委派记录 | Cordis 动态插件（host + client 双半） |
-| **Our Free Model (OFM)** | `plugins/dsh-our-free-model/` | 免费额度自动切换：多模型自动 fallback、用量探测、feed 推送 | Cordis 动态插件（host + client 双半） |
-
-四个插件**互不干扰**，各自独立挂载，任一插件缺失不影响其余插件工作。
-
-### 插件目录结构
-
-```
-plugins/
-├── dsh-agent-canvas/        # Agent Canvas 画布插件
-│   ├── src/
-│   │   ├── client.js        # 浏览器半（React UI）
-│   │   └── host.js          # 服务器半（RPC handlers）
-│   ├── package.json
-│   └── README.md
-├── dsh-advanced-patrol/     # 高级巡检插件
-│   ├── src/
-│   │   ├── client.js        # 浏览器半（侧边栏图标 + 控制面板）
-│   │   ├── host.js          # 服务器半（定时器 + LLM 巡检）
-│   │   └── presets.js       # 预设定义
-│   ├── presets/             # 预设模板 Markdown
-│   ├── cordis.patch.yml     # Cordis 组合声明
-│   ├── index.js
-│   └── package.json
-├── dsh-schedule-viewer/     # 定时任务查看器插件
-│   ├── src/
-│   │   ├── client.js        # 浏览器半（侧边栏图标 + 任务面板）
-│   │   └── host.js          # 服务器半（读取 schedule.json + state.json）
-│   ├── cordis.patch.yml     # Cordis 组合声明
-│   ├── index.js
-│   └── package.json
-└── dsh-our-free-model/      # OFM 免费模型插件
-    ├── src/                 # 核心模块（adapter/catalog/forward/probe 等）
-    ├── vendor/              # 运行时依赖（jet-hub wasm）
-    ├── adapter/  catalog/  feed/  worker/
-    ├── index.js             # 插件入口
-    ├── client.js            # 浏览器半
-    ├── cordis.patch.yml
-    └── package.json
+```sh
+dsh plugin --profile web add <spec>
 ```
 
-### 如何添加/移除插件
+装完由 `scripts/enable-bundles.mjs` 把包登记进 web profile 的 `dsh.profile.bundles`，容器启动即加载。
 
-- **添加**：将新插件目录放入 `plugins/`，确保有 `package.json` + `cordis.patch.yml`，重新 `docker compose build --no-cache`。
-- **移除**：从 `plugins/` 删除目录，重新 build。
-- **自定义**：修改插件源码后重新 build，或挂载自定义插件目录到容器内 `/home/dshuser/.dsh/plugins/`。
+当前清单：
+
+| 插件 | 安装 spec |
+|------|-----------|
+| **Advanced Patrol 高级巡检** | `git+https://github.com/Hana-ame/dsh-advanced-patrol.git` |
+| **Schedule Viewer 定时任务面板** | `git+https://github.com/Hana-ame/dsh-schedule-viewer.git` |
+| **Our Free Model (OFM)** | `git+https://github.com/Hana-ame/dsh-our-free-model.git`（Hana-ame fork，含 CodeArts 线路恢复） |
+
+清单条目可自由替换成任意 pnpm spec（npm 包名 / git URL / `github:user/repo`）。
+
+### 增加 / 移除插件
+
+- **增加**：把 spec 追加进 `plugins.list`，重新构建镜像即可，不需要改 Dockerfile。
+- **移除**：从 `plugins.list` 删掉对应行，重新构建。
+- **Agent Canvas**：动态 Cordis 插件，必须由运行中的 agent 用 `cordis_define` / `cordis_run` 加载，无法通过本清单预装（源码在 [Hana-ame/dsh-canvases](https://github.com/Hana-ame/dsh-canvases)）。
+
+### 构建期网络 / 代理
+
+插件在构建时从 GitHub 拉取，构建机需要能访问 GitHub。要走代理时：
+
+```bash
+docker compose build \
+  --build-arg HTTP_PROXY=http://127.0.0.1:7890 \
+  --build-arg HTTPS_PROXY=http://127.0.0.1:7890
+```
+
+或先 `export HTTP_PROXY=... HTTPS_PROXY=...`（`docker-compose.yml` 已把这两个变量透传为 build-arg）。
+
+### 关于数据卷（改清单后必读）
+
+`dsh_data` 卷第一次创建时会从镜像里复制 `/home/dshuser/.dsh`，之后一直复用卷内数据。因此**只重建镜像不会更新已有容器的插件**，两种做法：
+
+- 想保留会话数据：进容器手动补一次 `docker compose exec dsh dsh plugin --profile web add <新 spec>`；
+- 不需要旧数据：`docker compose down -v` 后重新 `up -d`，卷会按新镜像重建。
 
 ---
 
@@ -197,7 +187,7 @@ Docker Compose 会自动检测到配置变更并重新加载容器。
   ```bash
   docker compose logs -f
   ```
-* **重新构建镜像（在修改 Dockerfile 或 entrypoint.sh 之后）**：
+* **重新构建镜像（在修改 Dockerfile、entrypoint.sh 或 plugins.list 之后）**：
   ```bash
   docker compose build --no-cache
   docker compose up -d
