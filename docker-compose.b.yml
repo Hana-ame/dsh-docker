@@ -1,0 +1,52 @@
+# 第二个 dsh-docker 实例（互通测试用）。与 dsh-sandbox 完全隔离：
+# 容器名 / 端口 / 卷 / 网络内 IP 均不同，共用同一镜像。
+#
+# 用法：
+#   docker compose -f docker-compose.b.yml up -d
+# 前置：主实例已起（网络 dsh-docker_dsh-network 由主 compose 创建）。
+#
+# 注意：DNS / 资源限制 / 网段这些项这里刻意保持与主 compose 相同的可覆盖风格，
+# 但默认值写死成本实例需要的值（本文件定位就是「第二个固定实例」）。
+services:
+  dsh-b:
+    image: ${DSH_IMAGE:-dsh:latest}
+    container_name: ${DSH_B_CONTAINER_NAME:-dsh-sandbox-b}
+    restart: unless-stopped
+    ports:
+      - "${DSH_B_HOST_BIND:-127.0.0.1}:${DSH_B_HOST_PORT:-8083}:3080"
+    environment:
+      - NODE_ENV=production
+      - DSH_HOME=/home/dshuser/.dsh
+      - HOST_PORT=${DSH_B_HOST_PORT:-8083}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - EXTRA_TRUSTED_HOSTS=${EXTRA_TRUSTED_HOSTS:-}
+      # native loader 需要可执行目录；tmpfs 的 noexec 由 nosuid/nodev 隐含且不可覆盖
+      - NARB_NATIVE_CACHE_DIR=/workspace/.native-cache
+    volumes:
+      - dsh_data_b:/home/dshuser/.dsh
+      - dsh_workspace_b:/workspace
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=1g
+    security_opt:
+      - no-new-privileges=true
+    cap_drop:
+      - ALL
+    dns:
+      - ${DSH_DNS_1:-1.1.1.1}
+      - ${DSH_DNS_2:-8.8.8.8}
+    networks:
+      dsh-network:
+        ipv4_address: ${DSH_B_CONTAINER_IP:-172.28.0.11}
+
+volumes:
+  dsh_data_b:
+    name: ${DSH_B_DATA_VOLUME:-dsh_data_b}
+  dsh_workspace_b:
+    name: ${DSH_B_WORKSPACE_VOLUME:-dsh_workspace_b}
+
+networks:
+  # 复用主 compose 创建的网络。主 compose 的 project 名默认是目录名，
+  # 所以是 `dsh-docker_dsh-network`；目录改名或设了 COMPOSE_PROJECT_NAME 时要同步改这里。
+  dsh-network:
+    external: true
+    name: ${DSH_NETWORK_NAME:-dsh-docker_dsh-network}

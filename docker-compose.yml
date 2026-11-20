@@ -3,26 +3,45 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      # 构建期从 GitHub 拉插件；在 .env 里设置 HTTP(S)_PROXY 即自动传入 build-arg
+      # 构建期从 GitHub 拉插件；在 .env 里设置 HTTP(S)_PROXY 即自动传入 build-arg。
+      # 注意：build 阶段容器里的 127.0.0.1 是**构建容器自己**，不是宿主机。
+      # 宿主代理要用可达地址：Linux 用 `--network=host` 时的 127.0.0.1、
+      # 或 `host.docker.internal`（需 Docker 20.10+ 且 buildkit 支持）、
+      # 或宿主机在 docker bridge 上的网关 IP（默认 172.17.0.1）。
       args:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         NO_PROXY: ${NO_PROXY:-}
-    image: dsh:latest
-    container_name: dsh-sandbox
+        # 镜像源与版本（国内默认；海外构建在 .env 里覆盖）
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-mirrors.ustc.edu.cn}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+        DSH_VERSION: ${DSH_VERSION:-0.2.2-rc.2}
+        NATIVE_ADDON_VERSION: ${NATIVE_ADDON_VERSION:-0.1.9}
+    image: ${DSH_IMAGE:-dsh:latest}
+    # 容器名可覆盖；同机多开时改 DSH_CONTAINER_NAME（compose 不接受空值）。
+    container_name: ${DSH_CONTAINER_NAME:-dsh-sandbox}
     restart: unless-stopped
     ports:
-      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT:-8080}:3080"
+      # 默认只绑 127.0.0.1：dsh 的鉴权依赖 URL 里的 launch token →
+      # 落 cookie，明文 HTTP + query token 若绑 0.0.0.0 等于把入口暴露给
+      # 局域网/公网。需要 LAN 访问请显式设 HOST_BIND=0.0.0.0 并自行加 TLS 反代。
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8080}:3080"
     environment:
       - NODE_ENV=production
       - DSH_HOME=/home/dshuser/.dsh
       - HOST_PORT=${HOST_PORT:-8080}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - EXTRA_TRUSTED_HOSTS=${EXTRA_TRUSTED_HOSTS:-}
+      # dsh 的 native loader 把 .node 拷到 os.tmpdir() 再 dlopen；tmpfs /tmp 的
+      # nosuid/nodev 隐含 noexec（tmpfs 选项 exec 无法反向覆盖，会被静默丢弃），
+      # 必须把缓存目录挪到可执行卷，否则 dsh-app-boot 起不来。
+      - NARB_NATIVE_CACHE_DIR=/workspace/.native-cache
     volumes:
       - dsh_data:/home/dshuser/.dsh
       - dsh_workspace:/workspace
-    # In-memory tmpfs for /tmp: fast I/O and auto-cleaned on restart
+    # In-memory tmpfs for /tmp: fast I/O and auto-cleaned on restart。
+    # 注意 tmpfs 的 exec 选项会被 docker 静默丢弃（nosuid/nodev 隐含 noexec），
+    # 所以不要指望在这里执行二进制——native 缓存已指到 /workspace。
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=1g
     # Host isolation & security hardening
@@ -31,31 +50,37 @@ services:
     cap_drop:
       - ALL
     extra_hosts:
-      - "host.docker.internal:127.0.0.1"
+      - "host.docker.internal:host-gateway"
+    # DNS 可覆盖：默认用 Cloudflare/Google（海外友好）；国内构建/运行建议在 .env
+    # 里设 DSH_DNS_1/DSH_DNS_2 为 223.5.5.5 / 119.29.29.29 等。
     dns:
-      - 8.8.8.8
-      - 1.1.1.1
+      - ${DSH_DNS_1:-1.1.1.1}
+      - ${DSH_DNS_2:-8.8.8.8}
     deploy:
       resources:
         limits:
-          cpus: "2.0"
-          memory: 4G
+          cpus: "${DSH_CPUS:-2.0}"
+          memory: ${DSH_MEMORY:-4G}
           pids: 256
     networks:
       dsh-network:
-        ipv4_address: 172.28.0.10
+        # 与下面的 subnet 配套；compose 不接受空值，故给默认值。
+        ipv4_address: ${DSH_CONTAINER_IP:-172.28.0.10}
 
 networks:
   dsh-network:
     driver: bridge
+    # 172.28.0.0/16 与宿主既有路由冲突时，在 .env 里同时改
+    # DSH_SUBNET / DSH_CONTAINER_IP（compose 不接受空值，所以必须有默认）。
     ipam:
       driver: default
       config:
-        - subnet: 172.28.0.0/16
-          gateway: 172.28.0.1
+        - subnet: ${DSH_SUBNET:-172.28.0.0/16}
+          gateway: ${DSH_GATEWAY:-172.28.0.1}
 
 volumes:
+  # 卷名可覆盖，便于同机多开互不干扰。
   dsh_data:
-    name: dsh_data
+    name: ${DSH_DATA_VOLUME:-dsh_data}
   dsh_workspace:
-    name: dsh_workspace
+    name: ${DSH_WORKSPACE_VOLUME:-dsh_workspace}

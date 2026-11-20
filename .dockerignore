@@ -1,7 +1,14 @@
+# 版本控制与本地配置不进构建上下文
 .git
 .gitignore
 .env
 *.log
 docker-compose*.override.yml
-setup-security.sh
 README.md
+
+# 注意：scripts/ 必须保留在构建上下文里！
+#   scripts/install-base.sh    → 镜像内 apt 依赖安装
+#   scripts/install-plugins.sh → 构建期与启动期共用的插件安装逻辑
+#   scripts/enable-bundles.mjs → 登记 dsh.profile.bundles
+# setup-security.sh 只在宿主机上运行（要 root 改 iptables），不必进镜像，
+# 留在上下文里也无害 —— 不排除它，避免以后误以为脚本缺失。

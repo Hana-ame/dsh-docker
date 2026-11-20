@@ -6,24 +6,31 @@
 # 装完后 scripts/enable-bundles.mjs 会把声明了 dsh.bundle / dsh.client 的包
 # 登记到 web profile 的 dsh.profile.bundles，容器启动即加载。
 #
+# ── 版本固定（2026-11-21）─────────────────────────────────────────────────
+# 所有条目都钉到具体 commit（`<url>#<sha>`），不再跟分支 HEAD：
+#   * 不钉 → 同一份 Dockerfile 今天/明天构建出的镜像内容不同，
+#     且上游一次 force-push / 破坏性提交就能让「昨天还能 build」变成失败；
+#   * 钉住后升级是**显式动作**：改这一行的 sha（或跑 scripts/bump-plugins.sh）。
+# 升级脚本：scripts/bump-plugins.sh（把每行替换成对应仓库 main 的最新 commit）。
+#
 # 改完本文件请重新构建镜像：docker compose build
 
 # ── 自研插件（Hana-ame）──────────────────────────────────────────────────
-git+https://github.com/Hana-ame/dsh-peer-message.git
-git+https://github.com/Hana-ame/dsh-advanced-patrol.git
-git+https://github.com/Hana-ame/dsh-schedule-viewer.git
-git+https://github.com/Hana-ame/dsh-bash-prelude.git
-git+https://github.com/Hana-ame/dsh-enable-ui-schedule.git
-git+https://github.com/Hana-ame/dsh-gear-grid-model.git
-git+https://github.com/Hana-ame/dsh-model-select.git
-git+https://github.com/Hana-ame/dsh-ofm-huawei-codearts.git
-git+https://github.com/Hana-ame/dsh-ofm-rate-limit-retry.git
-git+https://github.com/Hana-ame/dsh-schedule-task-tab.git
-git+https://github.com/Hana-ame/dsh-sensenova-keypool.git
-git+https://github.com/Hana-ame/dsh-sensenova-multi.git
-git+https://github.com/Hana-ame/dsh-session-management.git
-git+https://github.com/Hana-ame/dsh-siliconflow-keypool.git
-git+https://github.com/Hana-ame/dsh-workspace-session-mgmt.git
+git+https://github.com/Hana-ame/dsh-peer-message.git#d4827effc9f75423f82330ad90ec01b53aa00ee9
+git+https://github.com/Hana-ame/dsh-advanced-patrol.git#b18ecd78e60b5cf97791a13bf09adb11f04a6bcb
+git+https://github.com/Hana-ame/dsh-schedule-viewer.git#7de8b175cae86a74b3d16cbe9e3d23520b7d5f7c
+git+https://github.com/Hana-ame/dsh-bash-prelude.git#aefb06d27853b1ce90ea02da749f58ca5ecdef70
+git+https://github.com/Hana-ame/dsh-enable-ui-schedule.git#be5b92c1ac5eba392bf9a14468e2899d29255738
+git+https://github.com/Hana-ame/dsh-gear-grid-model.git#c35f1b13530becde83b561ed4fe29f318015fd89
+git+https://github.com/Hana-ame/dsh-model-select.git#c33e39fc694fb81fc8c9f983ed34efaa3abba4ba
+git+https://github.com/Hana-ame/dsh-ofm-huawei-codearts.git#db112b64fa01f2f49430a714c0b7461ad57e615c
+git+https://github.com/Hana-ame/dsh-ofm-rate-limit-retry.git#2a39d29c8b5aedce26789ed26b52f27befdd682b
+git+https://github.com/Hana-ame/dsh-schedule-task-tab.git#47e0ab393a9c52a0a49e44c24701ba7159dca507
+git+https://github.com/Hana-ame/dsh-sensenova-keypool.git#70ab7a863ec135c97fac480f28af2b424412a7ed
+git+https://github.com/Hana-ame/dsh-sensenova-multi.git#ef2a69d9bfa34e4a6a22a5b60deb4b8e02db15d1
+git+https://github.com/Hana-ame/dsh-session-management.git#d180ef80dc8e2b61e8f79f4f2f623b8f3d8f05c5
+git+https://github.com/Hana-ame/dsh-siliconflow-keypool.git#b2b79739f53a113a6bf916742b33124cfbb75154
+git+https://github.com/Hana-ame/dsh-workspace-session-mgmt.git#48d3c434b76697e58fe1b5c96c14ac12eabb27c8
 
 # ── 说明 ────────────────────────────────────────────────────────────────
 # Agent Canvas 是动态 Cordis 插件，必须在运行中的 DSH 里由 agent 用
